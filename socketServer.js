@@ -120,8 +120,25 @@ function readJsonBody(bodyText) {
 }
 
 /* --- logic --- */
+
+function getPersons() {
+  var strQuery = "\
+    SELECT TOP 20\
+      *\
+    FROM\
+      collaborators\
+  "
+  var response = selectAll(strQuery)
+  return response
+}
+
 function handler(body, method, query) {
   switch (method) {
+    case 'getPersons': {
+
+      var data = getPersons()
+      return {status: 200, body: data}
+    }
     default:
       throwHttpError({code: 400, message: "Unknown method: " + method, isClientError: true})
   }
