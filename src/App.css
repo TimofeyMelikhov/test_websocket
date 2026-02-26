@@ -1,0 +1,155 @@
+#root {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.app {
+  display: grid;
+  gap: 16px;
+}
+
+h1,
+h2 {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.6rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.status {
+  width: fit-content;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  background: #f8fafc;
+}
+
+.status[data-state='CONNECTED'] {
+  border-color: #86efac;
+  background: #ecfdf3;
+  color: #166534;
+}
+
+.status[data-state='CONNECTING'] {
+  border-color: #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.status[data-state='DISCONNECTED'] {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+label {
+  font-weight: 600;
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #ffffff;
+}
+
+textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+button {
+  border: 1px solid #0f172a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #0f172a;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inline-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-label input {
+  width: auto;
+}
+
+.heartbeat-grid {
+  display: grid;
+  grid-template-columns: 1fr 140px auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.log {
+  min-height: 220px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+  background: #0f172a;
+}
+
+.log-entry {
+  font-family: Consolas, 'Courier New', monospace;
+  color: #e2e8f0;
+  line-height: 1.4;
+}
+
+.log-entry.recv {
+  color: #93c5fd;
+}
+
+.log-entry.error {
+  color: #fca5a5;
+}
+
+@media (max-width: 780px) {
+  #root {
+    padding: 12px;
+  }
+
+  .heartbeat-grid {
+    grid-template-columns: 1fr;
+  }
+}
