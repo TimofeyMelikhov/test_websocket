@@ -1,7 +1,11 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react from "@vitejs/plugin-react";
+import { type ConfigEnv, defineConfig } from "vite";
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react()],
-})
+export default ({ command }: ConfigEnv) => {
+  const isDev = command === "serve";
+  return defineConfig({
+    plugins: [react()],
+    base: isDev ? "" : "test_websocket/dist/",
+  });
+};
