@@ -1,4 +1,4 @@
-<%
+﻿<%
 var DEV_MODE = customWebTemplate.access.enable_anonymous_access;
 if (DEV_MODE) {
   Request.AddRespHeader("Access-Control-Allow-Origin", "*", false);
@@ -46,8 +46,8 @@ function throwHttpError(errorObject) {
 }
 
 var logConfig = {
-  code: "person_grade_dashboard_log",
-  type: "person_grade_dashboard",
+  code: "websocket_test_log",
+  type: "websocket_test_log",
   id: customWebTemplate.id
 }
 
@@ -146,8 +146,6 @@ function sendWs() {
 /* --- logic --- */
 function getInfo() {
   try {
-    // var messageFromWs = 'Сообщение отправленное через WS'
-    // sendWs(messageFromWs)
     sendWs()
     return 'Привет с сервера'
   } catch (error) {

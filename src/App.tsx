@@ -1,34 +1,18 @@
-// import { useState } from "react";
 import "./App.css";
 import { useCheckSocket } from "./hooks/useCheckSocket";
+import { useWebSocket } from "./hooks/useWebSocket";
 
 export function App() {
-  // const [state, setState] = useState<string>("");
-
-  const ws = new WebSocket("wss://std-wt03.stdp.ru/services/main_ws_service");
+  const { isConnected, socketId } = useWebSocket();
   const { data, refetch } = useCheckSocket();
-
-  console.log(data);
-
-  ws.onopen = () => {
-    // setState("CONNECTED");
-    console.log("Соединение установлено");
-  };
-
-  ws.onerror = (e) => console.log(`Ошибка WebSocket ${e}`, "error");
-
-  ws.onclose = (e) => {
-    // setState("DISCONNECTED");
-    console.log(`Соединение закрыто: code=${e.code}, reason=${e.reason}`);
-  };
-
-  ws.onmessage = (e) => {
-    console.log(JSON.parse(e.data));
-  };
 
   return (
     <div>
+      <div>Статус: {isConnected ? "Подключён" : "Нет соединения"}</div>
+      <div>ID сокета: {socketId}</div>
+
       <button onClick={() => refetch()}>Запрос на тест сокета</button>
+      <div>Ответ от API: {data}</div>
     </div>
   );
 }
