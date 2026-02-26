@@ -1,34 +1,72 @@
 <%
 var DEV_MODE = customWebTemplate.access.enable_anonymous_access;
-
 if (DEV_MODE) {
   Request.AddRespHeader("Access-Control-Allow-Origin", "*", false);
   Request.AddRespHeader("Access-Control-Expose-Headers", "Error-Message");
   Request.AddRespHeader("Access-Control-Allow-Headers", "origin, content-type, accept");
   Request.AddRespHeader("Access-Control-Allow-Credentials", "true");
-  Request.AddRespHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
 }
-
-Request.RespContentType = "application/json; charset=utf-8";
+Request.RespContentType = "application/json";
 Request.AddRespHeader("Content-Security-Policy", "frame-ancestors 'self'");
 Request.AddRespHeader("X-XSS-Protection", "1");
 Request.AddRespHeader("X-Frame-Options", "SAMEORIGIN");
 
-var curUserId = DEV_MODE ? OptInt("7079554317075315721") : OptInt(Request.Session.Env.curUserID);
+/* --- global --- */
+var curUserId = DEV_MODE
+  ? OptInt("7079554317075315721") // id пользователя
+  : OptInt(Request.Session.Env.curUserID);
+var curUser = DEV_MODE ? tools.open_doc(curUserId).TopElem : Request.Session.Env.curUser;
 
-function sendJson(status, payload) {
-  Request.SetRespStatus(status, "");
-  Response.Write(tools.object_to_text(payload, "json"));
+/* --- utils --- */
+function getParam(name) {
+  return tools_web.get_web_param(curParams, name, undefined, 0);
+}
+/**
+* Выбирает все записи sql запроса
+* @param {string} query - sql-выражение
+*/
+function selectAll(query) {
+  return ArraySelectAll(tools.xquery("sql: " + query));
+}
+/**
+* Выбирает первую запись sql запроса
+* @param {string} query - sql-выражение
+* @param {any} defaultObj - значение по умолчанию
+*/
+function selectOne(query, defaultObj) {
+  if (defaultObj === void 0) { defaultObj = undefined; }
+  return ArrayOptFirstElem(tools.xquery("sql: " + query), defaultObj);
+}
+/**
+* Создает поток ошибки с объектом error
+* @param {Object} errorObject - код ошибки
+*/
+function throwHttpError(errorObject) {
+  throw new Error (EncodeJson(errorObject))
 }
 
-function throwClientError(code, message) {
-  throw new Error(
-    EncodeJson({
-      code: code,
-      message: message,
-      isClientError: true
-    })
-  );
+var logConfig = {
+  code: "person_grade_dashboard_log",
+  type: "person_grade_dashboard",
+  id: customWebTemplate.id
+}
+
+function log(message, type) {
+  type = IsEmptyValue(type) ? "INFO" : StrUpperCase(type);
+
+  if (ObjectType(message) === "JsObject" || ObjectType(message) === "JsArray" || ObjectType(message) === "XmLdsSeq" || ObjectType(message) === "XmElem") {
+    message = tools.object_to_text(message, "json")
+  }
+
+  var log = "["+type+"]["+logConfig.type+"]["+logConfig.id+"]: "+message;
+
+  if(DEV_MODE) {
+    alert(log)
+  } else {
+    EnableLog(logConfig.code, true)
+    LogEvent(logConfig.code, log);
+    EnableLog(logConfig.code, false)
+  }  
 }
 
 function getErrorMessage(error) {
@@ -63,182 +101,95 @@ function getClientError(error) {
   return undefined;
 }
 
-function readJsonBody(bodyText) {
-  if (IsEmptyValue(bodyText)) {
-    return new Object();
-  }
+function sendJson(res, status, payload) {
+  Request.SetRespStatus(status, "");
+  res.Write(tools.object_to_text(payload, "json"));
+}
 
+function readJsonBody(bodyText) {
+  if (IsEmptyValue(bodyText)) { return undefined; }
   try {
     return tools.read_object(bodyText);
   } catch (e) {
-    throwClientError(400, "Invalid JSON body");
-  }
-}
-
-function getBodyProperty(body, name, defaultValue) {
-  if (IsEmptyValue(body)) {
-    return defaultValue;
-  }
-
-  try {
-    if (ObjectType(body) == "JsObject") {
-      return body.GetOptProperty(name, defaultValue);
-    }
-  } catch (e1) {}
-
-  try {
-    if (typeof body[name] != "undefined") {
-      return body[name];
-    }
-  } catch (e2) {}
-
-  return defaultValue;
-}
-
-function getInputValue(query, body, name, defaultValue) {
-  var result = getBodyProperty(body, name, defaultValue);
-  try {
-    result = query.GetOptProperty(name, result);
-  } catch (e) {}
-  return result;
-}
-
-function buildStatefulSocketId(userId) {
-  return "ws-user-" + userId + "-" + (new Date()).getTime();
-}
-
-function getXHttpStaticAssembly() {
-  return tools.get_object_assembly("XHTTPMiddlewareStatic");
-}
-
-function findSocketKeys(serviceName, statefulSocketId) {
-  var xHttpStaticAssembly = getXHttpStaticAssembly();
-  var allSockets = xHttpStaticAssembly.CallClassStaticMethod(
-    "Datex.XHTTP.WebSocketContext",
-    "GetWebSockets"
-  ).ToArray();
-
-  var result = [];
-  var i = 0;
-  var servicePrefix = "/services/" + serviceName + "-";
-  var expectedSuffix = "-s-" + statefulSocketId;
-
-  for (i = 0; i < allSockets.length; i++) {
-    var socketKey = "" + allSockets[i].Key;
-
-    if (socketKey.indexOf(servicePrefix) !== 0) {
-      continue;
-    }
-
-    if (!StrEnds(socketKey, expectedSuffix, true)) {
-      continue;
-    }
-
-    result.push(socketKey);
-  }
-
-  return result;
-}
-
-function sendGreetingToSocket(socketKey, statefulSocketId) {
-  var xHttpStaticAssembly = getXHttpStaticAssembly();
-
-  var payload = new Object();
-  payload.type = "greeting";
-  payload.message = "Hello from server";
-  payload.socket_id = statefulSocketId;
-  payload.ts = "" + Date();
-
-  xHttpStaticAssembly.CallClassStaticMethod(
-    "Datex.XHTTP.WebSocketContext",
-    "WriteToWebSocketMessageQueue",
-    [socketKey, EncodeJson(payload), false]
-  );
-}
-
-function handleInitSocket(query, body) {
-  var serviceName = "" + getInputValue(query, body, "service", "main_ws_service");
-  var statefulSocketId = "" + getInputValue(query, body, "socket_id", "");
-
-  if (IsEmptyValue(statefulSocketId)) {
-    statefulSocketId = buildStatefulSocketId(curUserId);
-  }
-
-  var socketKeys = findSocketKeys(serviceName, statefulSocketId);
-  var i = 0;
-  for (i = 0; i < socketKeys.length; i++) {
-    sendGreetingToSocket(socketKeys[i], statefulSocketId);
-  }
-
-  var response = new Object();
-  response.socket_id = statefulSocketId;
-  response.service = serviceName;
-  response.user_id = curUserId;
-  response.ws_path = "/services/" + serviceName + "?X-StatefulSocketId=" + statefulSocketId;
-  response.greeting_sent = socketKeys.length > 0;
-  response.matched_sockets = socketKeys.length;
-
-  return response;
-}
-
-function getRequestMethod(req) {
-  try {
-    if (!IsEmptyValue(req.RequestMethod)) {
-      return StrUpperCase("" + req.RequestMethod);
-    }
-  } catch (e1) {}
-
-  try {
-    if (!IsEmptyValue(req.Method)) {
-      return StrUpperCase("" + req.Method);
-    }
-  } catch (e2) {}
-
-  return "GET";
-}
-
-function main(req) {
-  try {
-    var requestMethod = getRequestMethod(req);
-    if (requestMethod == "OPTIONS") {
-      sendJson(200, { ok: true });
-      return;
-    }
-
-    var body = readJsonBody(req.Body);
-    var command = "" + req.Query.GetOptProperty("command", getBodyProperty(body, "command", ""));
-    command = StrLowerCase(command);
-
-    if (IsEmptyValue(command)) {
-      throwClientError(400, "command is required");
-    }
-
-    switch (command) {
-      case "init_socket": {
-        var result = handleInitSocket(req.Query, body);
-        sendJson(200, result);
-        return;
-      }
-      default:
-        throwClientError(400, "Unknown command: " + command);
-    }
-  } catch (error) {
-    var clientError = getClientError(error);
-    if (clientError != null && clientError.isClientError) {
-      sendJson(clientError.code, {
-        code: clientError.code,
-        message: clientError.message
-      });
-      return;
-    }
-
-    sendJson(500, {
-      code: 500,
-      message: "Internal Server Error",
-      details: getErrorMessage(error)
+    throwHttpError({
+      code: 400,
+      message: "Invalid JSON body",
+      isClientError: true
     });
   }
 }
 
-main(Request);
+function sendWs() {
+  var xHttpStaticAssembly = tools.get_object_assembly( 'XHTTPMiddlewareStatic' ); 
+  var WebSockets = xHttpStaticAssembly.CallClassStaticMethod( 'Datex.XHTTP.WebSocketContext', 'GetWebSockets').ToArray();
+
+  var obj = {
+    type: 'AnswerServer',
+    data: 'Привет из вебсокета',
+  }
+
+  var wsAnswer = EncodeJson(obj)
+
+  for(i = 0; i < WebSockets.length; i++) { 
+    xHttpStaticAssembly.CallClassStaticMethod( 
+        'Datex.XHTTP.WebSocketContext', 
+        'WriteToWebSocketMessageQueue', 
+        [
+          WebSockets[i].Key,
+          wsAnswer,
+          false
+        ] 
+    ); 
+  }
+}
+
+/* --- logic --- */
+function getInfo() {
+  try {
+    // var messageFromWs = 'Сообщение отправленное через WS'
+    // sendWs(messageFromWs)
+    sendWs()
+    return 'Привет с сервера'
+  } catch (error) {
+    log(error.message)
+    throw error;
+  }
+}
+
+function handler(body, method, query) {
+  switch (method) {
+    case 'getInfo': {
+      var data = getInfo()
+      return {status: 200, body: data}
+    }
+    default:
+      throwHttpError({code: 400, message: "Unknown method: " + method, isClientError: true})
+  }
+}
+
+function main(req, res) {
+  try {
+    var body = readJsonBody(req.Body);
+
+    var method = req.Query.GetOptProperty("method", "");
+    if (IsEmptyValue(method)) {
+      throwHttpError({code: 400, message: "unknown method", isClientError: true});
+    }
+    var result = handler(body, method, req.Query);
+    sendJson(res, OptInt(result.status, 200), result.body)
+  }
+  catch (error) {
+    var clientError = getClientError(error);
+    var errorMessage = getErrorMessage(error);
+
+    if(clientError != null && clientError.isClientError) {
+      sendJson(res, clientError.code, {code: clientError.code, message: clientError.message})
+      log("Client error " + clientError.code + ": " + clientError.message, "WARN")
+    } else {
+      sendJson(res, 500, { code: 500, message: "Internal Server Error" })
+      log("Server error: " + errorMessage, "ERROR")
+    }
+  }
+}
+main(Request, Response);
 %>
