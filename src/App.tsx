@@ -31,7 +31,7 @@ function defaultWsUrl(): string {
 }
 
 function defaultActionUrl(): string {
-  return `${window.location.origin}/socket_action`;
+  return `${window.location.origin}/custom_web_template.html?object_id=7258561803636866214`;
 }
 
 function extractSocketId(value: unknown): string | null {
@@ -229,7 +229,13 @@ function App() {
 
   const connect = () => {
     try {
-      const targetUrl = toWebSocketUrl(wsUrl, statefulSocketId);
+      const activeSocketId = statefulSocketId.trim();
+      if (!activeSocketId) {
+        appendLog("socket_id is empty", "error");
+        return;
+      }
+
+      const targetUrl = toWebSocketUrl(wsUrl, activeSocketId);
 
       if (socketRef.current) {
         disconnect(1000, "reconnect");
@@ -248,6 +254,7 @@ function App() {
         setConnectionState("CONNECTED");
         appendLog("Соединение установлено");
         startHeartbeat();
+        void requestStatefulSocketId(activeSocketId);
       };
 
       socket.onmessage = (event: MessageEvent<string>) => {
@@ -279,10 +286,14 @@ function App() {
     }
   };
 
-  const requestStatefulSocketId = async () => {
+  const requestStatefulSocketId = async (existingSocketId?: string) => {
     try {
       const url = new URL(actionUrl, window.location.origin);
       url.searchParams.set("command", "init_socket");
+      url.searchParams.set("service", "main_ws_service");
+      if (existingSocketId && existingSocketId.trim()) {
+        url.searchParams.set("socket_id", existingSocketId.trim());
+      }
 
       const response = await fetch(url.toString(), {
         method: "GET",
@@ -395,11 +406,11 @@ function App() {
           id="actionUrl"
           value={actionUrl}
           onChange={(event) => setActionUrl(event.target.value)}
-          placeholder="https://std-wt03.stdp.ru/socket_action"
+          placeholder="https://std-wt03.stdp.ru/custom_web_template.html?object_id=7258561803636866214"
         />
 
         <div className="controls">
-          <button type="button" onClick={requestStatefulSocketId}>
+          <button type="button" onClick={() => void requestStatefulSocketId()}>
             Получить socket id
           </button>
           <button
