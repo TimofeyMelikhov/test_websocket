@@ -2,22 +2,33 @@ import { useEffect, useRef, useState, useCallback } from "react";
 
 type ServerMessage = {
   type: string;
-  data: any;
+  percent: string;
+  message: string;
 };
 
 export const useWebSocket = () => {
   const socketRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [socketId, setSocketId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ServerMessage>(); // ← новое состояние
+  const userSocketIdRef = useRef(window.crypto.randomUUID());
+  const userSocketId = userSocketIdRef.current;
 
   useEffect(() => {
-    const ws = new WebSocket("wss://std-wt03.stdp.ru/services/main_ws_service");
+    const ws = new WebSocket(
+      `wss://std-wt03.stdp.ru/services/main_ws_service?X-StatefulSocketId=${userSocketId}`,
+    );
 
     socketRef.current = ws;
 
     ws.onopen = () => {
       console.log("✅ WebSocket подключён");
       setIsConnected(true);
+      ws.send(
+        JSON.stringify({
+          socket_action: "init_socket",
+          socket_type: "adminTools",
+        }),
+      );
     };
 
     ws.onclose = (e) => {
@@ -30,11 +41,10 @@ export const useWebSocket = () => {
     };
 
     ws.onmessage = (event) => {
-      const message: ServerMessage = JSON.parse(event.data);
-      console.log("📩 Сообщение:", message);
-
-      if (message.type === "connectionId") {
-        setSocketId(message.data);
+      const data = JSON.parse(event.data);
+      if (Array.isArray(data) && data[0]?.type === "progress") {
+        const progress = data[0];
+        setMessages(progress);
       }
     };
 
@@ -54,7 +64,8 @@ export const useWebSocket = () => {
 
   return {
     isConnected,
-    socketId,
+    userSocketId,
+    messages,
     sendMessage,
   };
 };

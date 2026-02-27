@@ -1,12 +1,21 @@
 import { axiosClient } from "./axiosClient";
 
+interface IServerResponse {
+  status: string;
+  result: string;
+}
+
 export const gradeApi = {
-  checkSocket: async () => {
-    const response = await axiosClient.get<any>("", {
-      params: {
-        method: "getInfo",
+  checkSocket: async (userSocketId: string) => {
+    const response = await axiosClient.post<IServerResponse>(
+      "",
+      { userSocketId },
+      {
+        params: {
+          method: "getInfo",
+        },
       },
-    });
+    );
 
     return response.data;
   },

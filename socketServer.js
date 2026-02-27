@@ -119,35 +119,44 @@ function readJsonBody(bodyText) {
   }
 }
 
-function sendWs() {
-  var xHttpStaticAssembly = tools.get_object_assembly( 'XHTTPMiddlewareStatic' ); 
-  var WebSockets = xHttpStaticAssembly.CallClassStaticMethod( 'Datex.XHTTP.WebSocketContext', 'GetWebSockets').ToArray();
+function sendWs(userSocketId, message) {
+  try {
+    var xHttpStaticAssembly = tools.get_object_assembly( 'XHTTPMiddlewareStatic' ); 
+    var WebSockets = xHttpStaticAssembly.CallClassStaticMethod('Datex.XHTTP.WebSocketContext', 'GetWebSockets').ToArray();
 
-  var obj = {
-    type: 'AnswerServer',
-    data: 'Привет из вебсокета',
-  }
-
-  var wsAnswer = EncodeJson(obj)
-
-  for(i = 0; i < WebSockets.length; i++) { 
-    xHttpStaticAssembly.CallClassStaticMethod( 
+    for(i = 0; i < WebSockets.length; i++) {
+      socketId = WebSockets[i].Key
+      if(!StrEnds(socketId, 's-'+userSocketId, true)) continue
+      xHttpStaticAssembly.CallClassStaticMethod( 
         'Datex.XHTTP.WebSocketContext', 
         'WriteToWebSocketMessageQueue', 
         [
-          WebSockets[i].Key,
-          wsAnswer,
+          socketId,
+          EncodeJson(message),
           false
         ] 
-    ); 
+      ); 
+    }
+  } catch (error) {
+    log('Ошибка sendWs: ' + error.message)
   }
 }
 
 /* --- logic --- */
-function getInfo() {
+function getInfo(body) {
   try {
-    sendWs()
-    return 'Привет с сервера'
+    var userSocketId = body.userSocketId;
+
+    for (step = 1; step <= 100; step++) {
+      Sleep(100);
+      sendWs(userSocketId, {
+        type: 'progress',
+        percent: step,
+        message: 'Шаг ' + step + ' из 100'
+      });
+    }
+
+    return { status: 'ok', result: 'Операция завершена' };
   } catch (error) {
     log(error.message)
     throw error;
@@ -157,7 +166,7 @@ function getInfo() {
 function handler(body, method, query) {
   switch (method) {
     case 'getInfo': {
-      var data = getInfo()
+      var data = getInfo(body)
       return {status: 200, body: data}
     }
     default:
